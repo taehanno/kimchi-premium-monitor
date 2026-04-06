@@ -294,6 +294,80 @@
     .alert-status.ok  { color: var(--green); }
     .alert-status.err { color: var(--red); }
 
+    /* ── HKD Dashboard ─────────────────────────── */
+    .hkd-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+    .hkd-price-block { text-align: left; }
+    .hkd-price-label {
+      font-size: .68rem;
+      color: var(--txt-3);
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      margin-bottom: 5px;
+    }
+    .hkd-price-main {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--txt-1);
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+    }
+    .hkd-price-krw {
+      font-size: .78rem;
+      color: var(--txt-2);
+      margin-top: 5px;
+      font-variant-numeric: tabular-nums;
+    }
+    .hkd-change {
+      text-align: right;
+    }
+    .hkd-change-val {
+      font-size: 1.3rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+    .hkd-change-val.up   { color: var(--green); }
+    .hkd-change-val.down { color: var(--red); }
+    .hkd-change-val.flat { color: var(--txt-3); }
+    .hkd-change-label {
+      font-size: .68rem;
+      color: var(--txt-3);
+      margin-top: 3px;
+    }
+
+    .hkd-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      margin-top: 4px;
+    }
+    .hkd-stat {
+      background: var(--bg-1);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 10px 9px;
+      text-align: center;
+    }
+    .hkd-stat-label {
+      font-size: .62rem;
+      color: var(--txt-3);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      margin-bottom: 5px;
+    }
+    .hkd-stat-val {
+      font-size: .82rem;
+      font-weight: 700;
+      color: var(--txt-1);
+      font-variant-numeric: tabular-nums;
+    }
+    .hkd-stat-val.hi { color: var(--green); }
+    .hkd-stat-val.lo { color: var(--red); }
+
     footer {
       text-align: center;
       font-size: .72rem;
@@ -304,6 +378,7 @@
     @media (max-width: 360px) {
       .prem-value { font-size: 2.8rem; }
       .price-grid { grid-template-columns: 1fr; }
+      .hkd-stats  { grid-template-columns: 1fr 1fr; }
     }
   </style>
 </head>
@@ -355,6 +430,36 @@
         <span id="statusText">연결 중...</span>
       </span>
       <span class="countdown" id="countdown"></span>
+    </div>
+  </div>
+
+  <!-- HashKey USDT/HKD 대시보드 -->
+  <div class="card">
+    <div class="section-hd">🇭🇰 HashKey &nbsp;USDT / HKD</div>
+    <div class="hkd-header">
+      <div class="hkd-price-block">
+        <div class="hkd-price-label">현재가</div>
+        <div class="hkd-price-main" id="hkdMain">--</div>
+        <div class="hkd-price-krw" id="hkdKrwDetail">-- KRW</div>
+      </div>
+      <div class="hkd-change">
+        <div class="hkd-change-val flat" id="hkdChangeVal">--</div>
+        <div class="hkd-change-label">24h 변동</div>
+      </div>
+    </div>
+    <div class="hkd-stats">
+      <div class="hkd-stat">
+        <div class="hkd-stat-label">24H 고가</div>
+        <div class="hkd-stat-val hi" id="hkdHigh">--</div>
+      </div>
+      <div class="hkd-stat">
+        <div class="hkd-stat-label">24H 저가</div>
+        <div class="hkd-stat-val lo" id="hkdLow">--</div>
+      </div>
+      <div class="hkd-stat">
+        <div class="hkd-stat-label">거래량</div>
+        <div class="hkd-stat-val" id="hkdVol">--</div>
+      </div>
     </div>
   </div>
 
@@ -422,6 +527,7 @@ const state = {
 const fmtKrw  = n => Math.round(n).toLocaleString('ko-KR');
 const fmtHkd  = n => n.toFixed(4);
 const fmtRate = n => n.toFixed(2);
+const fmtVol  = n => n >= 1e6 ? `${(n/1e6).toFixed(2)}M` : n >= 1e3 ? `${(n/1e3).toFixed(1)}K` : n.toFixed(0);
 
 function fmtDateTime(d) {
   const p = n => String(n).padStart(2, '0');
@@ -469,6 +575,21 @@ async function fetchCoinGeckoHKD() {
   return price;
 }
 
+async function fetchHashKey24h() {
+  const res = await fetchWithTimeout(
+    'https://api-pro.hashkey.com/quote/v1/ticker/24hr?symbol=USDTHKD', 5000
+  );
+  if (!res.ok) throw new Error(`HashKey 24h HTTP ${res.status}`);
+  const json = await res.json();
+  const item = Array.isArray(json) ? json[0] : json;
+  return {
+    change:  parseFloat(item?.priceChangePercent ?? item?.priceChange24h ?? NaN),
+    high:    parseFloat(item?.highPrice ?? item?.high ?? NaN),
+    low:     parseFloat(item?.lowPrice  ?? item?.low  ?? NaN),
+    volume:  parseFloat(item?.volume ?? NaN),
+  };
+}
+
 async function fetchHKDKRW() {
   const res = await fetchWithTimeout('https://api.exchangerate-api.com/v4/latest/HKD');
   if (!res.ok) throw new Error(`ExchangeRate HTTP ${res.status}`);
@@ -497,7 +618,15 @@ async function fetchAll() {
   const hk_krw  = hk_hkd * hkd_krw;
   const premium = (bithumb_krw - hk_krw) / hk_krw * 100;
 
-  return { bithumb_krw, hk_hkd, hk_krw, hkd_krw, premium, source };
+  // 24h stats — 실패해도 메인 데이터에 영향 없음
+  let stats24h = null;
+  try {
+    stats24h = await fetchHashKey24h();
+  } catch (e) {
+    console.warn('[24h 실패]', e.message);
+  }
+
+  return { bithumb_krw, hk_hkd, hk_krw, hkd_krw, premium, source, stats24h };
 }
 
 // ── Telegram ───────────────────────────────────────
@@ -601,6 +730,23 @@ function updateUI(data) {
   badge.textContent = data.source;
   badge.className   = `badge ${data.source === 'CoinGecko' ? 'badge-orange' : 'badge-purple'}`;
   document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString('ko-KR');
+
+  // HKD Dashboard
+  document.getElementById('hkdMain').textContent    = `${fmtHkd(data.hk_hkd)} HKD`;
+  document.getElementById('hkdKrwDetail').textContent = `≈ ${fmtKrw(data.hk_krw)} KRW`;
+
+  const s = data.stats24h;
+  if (s) {
+    const chEl = document.getElementById('hkdChangeVal');
+    if (!isNaN(s.change)) {
+      const sign = s.change >= 0 ? '+' : '';
+      chEl.textContent = `${sign}${s.change.toFixed(2)}%`;
+      chEl.className = `hkd-change-val ${s.change > 0 ? 'up' : s.change < 0 ? 'down' : 'flat'}`;
+    }
+    document.getElementById('hkdHigh').textContent = isNaN(s.high)   ? '--' : s.high.toFixed(4);
+    document.getElementById('hkdLow').textContent  = isNaN(s.low)    ? '--' : s.low.toFixed(4);
+    document.getElementById('hkdVol').textContent  = isNaN(s.volume) ? '--' : fmtVol(s.volume);
+  }
 
   // Status dot
   document.getElementById('statusDot').className = 'dot live';
