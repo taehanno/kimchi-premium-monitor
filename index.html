@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>USDT 김치프리미엄 모니터</title>
+  <style>
+    :root {
+      --bg-0: #07070e;
+      --bg-1: #0f0f1a;
+      --bg-2: #161624;
+      --bg-3: #1e1e30;
+      --border: #252538;
+      --border-hi: #333350;
+      --txt-1: #e8e8f4;
+      --txt-2: #9090b8;
+      --txt-3: #55556a;
+      --green:  #00e676;
+      --green-dim: rgba(0,230,118,0.12);
+      --red:    #ff4f4f;
+      --red-dim: rgba(255,79,79,0.12);
+      --blue:   #4fc3f7;
+      --blue-dim: rgba(79,195,247,0.12);
+      --purple: #7c4dff;
+      --purple-dim: rgba(124,77,255,0.15);
+      --orange: #ffab40;
+      --orange-dim: rgba(255,171,64,0.12);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg-0);
+      color: var(--txt-1);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      padding: 16px 16px 40px;
+    }
+
+    /* ── Layout ────────────────────────────────── */
+    .wrap { max-width: 460px; margin: 0 auto; }
+
+    header {
+      text-align: center;
+      padding: 20px 0 18px;
+    }
+    header h1 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--txt-2);
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+
+    .card {
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 22px 20px;
+      margin-bottom: 12px;
+    }
+
+    /* ── Premium Card ──────────────────────────── */
+    .card-premium {
+      text-align: center;
+      padding: 30px 20px 26px;
+    }
+    .prem-eyebrow {
+      font-size: .72rem;
+      color: var(--txt-3);
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    .prem-value {
+      font-size: clamp(3rem, 14vw, 4.4rem);
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: -.03em;
+      transition: color .4s;
+      font-variant-numeric: tabular-nums;
+    }
+    .prem-value.st-idle    { color: var(--txt-3); }
+    .prem-value.st-pos     { color: var(--green); }
+    .prem-value.st-pos-hi  { color: var(--red);   }
+    .prem-value.st-neg     { color: var(--blue);  }
+
+    .prem-desc {
+      font-size: .83rem;
+      color: var(--txt-2);
+      margin-top: 10px;
+      min-height: 1.2em;
+    }
+    .prem-action {
+      display: inline-block;
+      margin-top: 12px;
+      font-size: .75rem;
+      padding: 5px 14px;
+      border-radius: 20px;
+      opacity: 0;
+      transition: opacity .3s;
+    }
+    .prem-action.show { opacity: 1; }
+    .prem-action.act-pos {
+      background: var(--green-dim);
+      border: 1px solid rgba(0,230,118,.25);
+      color: var(--green);
+    }
+    .prem-action.act-neg {
+      background: var(--blue-dim);
+      border: 1px solid rgba(79,195,247,.25);
+      color: var(--blue);
+    }
+
+    /* ── Price Grid ────────────────────────────── */
+    .price-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .price-tile {
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px 14px;
+    }
+    .tile-exch {
+      font-size: .68rem;
+      color: var(--txt-3);
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      margin-bottom: 7px;
+    }
+    .tile-main {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--txt-1);
+      font-variant-numeric: tabular-nums;
+    }
+    .tile-sub {
+      font-size: .72rem;
+      color: var(--txt-2);
+      margin-top: 4px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ── Info Card ─────────────────────────────── */
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 9px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .info-row:last-child { border-bottom: none; padding-bottom: 0; }
+    .info-row:first-child { padding-top: 0; }
+    .info-label { font-size: .82rem; color: var(--txt-2); }
+    .info-val   { font-size: .82rem; font-weight: 600; color: var(--txt-1); font-variant-numeric: tabular-nums; }
+
+    .badge {
+      font-size: .68rem;
+      padding: 2px 9px;
+      border-radius: 10px;
+      font-weight: 600;
+    }
+    .badge-purple {
+      background: var(--purple-dim);
+      border: 1px solid rgba(124,77,255,.3);
+      color: var(--purple);
+    }
+    .badge-orange {
+      background: var(--orange-dim);
+      border: 1px solid rgba(255,171,64,.3);
+      color: var(--orange);
+    }
+
+    /* status row */
+    .status-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: .78rem;
+      color: var(--txt-3);
+    }
+    .dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--txt-3);
+      flex-shrink: 0;
+    }
+    .dot.live  { background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse 2s infinite; }
+    .dot.error { background: var(--red); }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+
+    .countdown { font-size: .72rem; color: var(--txt-3); }
+
+    /* ── Alert Settings ────────────────────────── */
+    .section-hd {
+      font-size: .72rem;
+      font-weight: 700;
+      color: var(--txt-3);
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+    .form-group { margin-bottom: 13px; }
+    .form-lbl {
+      display: block;
+      font-size: .75rem;
+      color: var(--txt-2);
+      margin-bottom: 5px;
+    }
+    .form-inp {
+      width: 100%;
+      background: var(--bg-1);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 10px 12px;
+      color: var(--txt-1);
+      font-size: .88rem;
+      outline: none;
+      transition: border-color .2s;
+    }
+    .form-inp:focus { border-color: var(--purple); }
+    .form-inp::placeholder { color: var(--txt-3); }
+
+    .thr-row { display: flex; align-items: center; gap: 9px; }
+    .thr-row .form-inp { width: 80px; text-align: center; }
+    .thr-unit { font-size: .85rem; color: var(--txt-2); }
+    .thr-note { font-size: .7rem; color: var(--txt-3); }
+
+    .toggle-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 14px 0 4px;
+    }
+    .toggle-text { font-size: .88rem; color: var(--txt-1); }
+
+    .switch { position: relative; display: inline-block; width: 46px; height: 25px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .sw-track {
+      position: absolute; inset: 0;
+      background: var(--border);
+      border-radius: 25px;
+      cursor: pointer;
+      transition: background .3s;
+    }
+    .sw-track::before {
+      content: '';
+      position: absolute;
+      width: 17px; height: 17px;
+      left: 4px; bottom: 4px;
+      background: var(--txt-3);
+      border-radius: 50%;
+      transition: transform .3s, background .3s;
+    }
+    .switch input:checked + .sw-track {
+      background: rgba(0,230,118,.18);
+      border: 1px solid var(--green);
+    }
+    .switch input:checked + .sw-track::before {
+      transform: translateX(21px);
+      background: var(--green);
+    }
+
+    .btn-test {
+      width: 100%;
+      background: var(--purple-dim);
+      border: 1px solid rgba(124,77,255,.3);
+      border-radius: 9px;
+      color: var(--purple);
+      padding: 11px;
+      font-size: .85rem;
+      cursor: pointer;
+      margin-top: 14px;
+      transition: background .2s, border-color .2s;
+    }
+    .btn-test:hover { background: rgba(124,77,255,.25); border-color: rgba(124,77,255,.5); }
+    .btn-test:active { transform: scale(.98); }
+
+    .alert-status {
+      min-height: 18px;
+      font-size: .75rem;
+      text-align: center;
+      margin-top: 10px;
+      color: var(--txt-3);
+    }
+    .alert-status.ok  { color: var(--green); }
+    .alert-status.err { color: var(--red); }
+
+    footer {
+      text-align: center;
+      font-size: .72rem;
+      color: var(--txt-3);
+      padding-top: 8px;
+    }
+
+    @media (max-width: 360px) {
+      .prem-value { font-size: 2.8rem; }
+      .price-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🌶 USDT 김치프리미엄 모니터</h1>
+  </header>
+
+  <!-- 프리미엄 대형 표시 -->
+  <div class="card card-premium">
+    <div class="prem-eyebrow">현재 김치프리미엄</div>
+    <div class="prem-value st-idle" id="premValue">--</div>
+    <div class="prem-desc" id="premDesc">데이터 로딩 중...</div>
+    <span class="prem-action" id="premAction"></span>
+  </div>
+
+  <!-- 거래소 가격 -->
+  <div class="price-grid">
+    <div class="price-tile">
+      <div class="tile-exch">🇰🇷 Bithumb</div>
+      <div class="tile-main" id="bithumbKrw">--</div>
+      <div class="tile-sub">USDT / KRW</div>
+    </div>
+    <div class="price-tile">
+      <div class="tile-exch" id="hkExchLabel">🇭🇰 HashKey</div>
+      <div class="tile-main" id="hkHkd">--</div>
+      <div class="tile-sub" id="hkKrwSub">-- KRW 환산</div>
+    </div>
+  </div>
+
+  <!-- 부가 정보 -->
+  <div class="card">
+    <div class="info-row">
+      <span class="info-label">HKD / KRW 환율</span>
+      <span class="info-val" id="hkdRate">--</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">HK 데이터 소스</span>
+      <span class="badge badge-purple" id="srcBadge">--</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">마지막 업데이트</span>
+      <span class="info-val" id="lastUpdate">--</span>
+    </div>
+    <div class="info-row status-row">
+      <span class="status-pill">
+        <span class="dot" id="statusDot"></span>
+        <span id="statusText">연결 중...</span>
+      </span>
+      <span class="countdown" id="countdown"></span>
+    </div>
+  </div>
+
+  <!-- 텔레그램 알림 설정 -->
+  <div class="card">
+    <div class="section-hd">텔레그램 알림 설정</div>
+
+    <div class="form-group">
+      <label class="form-lbl" for="inToken">BOT TOKEN</label>
+      <input id="inToken" type="password" class="form-inp" placeholder="봇 토큰을 입력하세요">
+    </div>
+
+    <div class="form-group">
+      <label class="form-lbl" for="inChatId">CHAT ID</label>
+      <input id="inChatId" type="text" class="form-inp" placeholder="채팅 ID (예: -100123456789)">
+    </div>
+
+    <div class="form-group">
+      <label class="form-lbl">알림 임계값</label>
+      <div class="thr-row">
+        <input id="inThreshold" type="number" class="form-inp" min="0.1" step="0.1">
+        <span class="thr-unit">%</span>
+        <span class="thr-note">|프리미엄| 초과 시 알림</span>
+      </div>
+    </div>
+
+    <div class="toggle-row">
+      <span class="toggle-text">알림 활성화</span>
+      <label class="switch">
+        <input type="checkbox" id="alertToggle">
+        <span class="sw-track"></span>
+      </label>
+    </div>
+
+    <button class="btn-test" id="btnTest">테스트 메시지 전송</button>
+    <div class="alert-status" id="alertStatus"></div>
+  </div>
+
+  <footer>kimchi-premium-monitor &nbsp;·&nbsp; 30초마다 자동 갱신</footer>
+</div>
+
+<script>
+// ╔══════════════════════════════════════════════════╗
+// ║  CONFIG — 이 파일을 수정해 기본값을 바꾸세요       ║
+// ╚══════════════════════════════════════════════════╝
+const CONFIG = {
+  TELEGRAM_BOT_TOKEN: '8787665739:AAF6_WbQ0radEzs40TFqDnutoKlWgG6x4HA',
+  TELEGRAM_CHAT_ID:   '',       // 배포 전에 입력 (UI에서도 변경 가능)
+  ALERT_THRESHOLD:    2.0,      // 알림 임계값 (%)
+  REFRESH_INTERVAL:   30000,    // 자동 갱신 주기 (ms)
+  ALERT_COOLDOWN:     600000,   // 알림 재발송 최소 간격 (ms) = 10분
+};
+
+// ── State ──────────────────────────────────────────
+const state = {
+  alertEnabled: false,
+  lastAlertTime: 0,
+  lastData: null,
+  countdown: CONFIG.REFRESH_INTERVAL / 1000,
+  refreshId: null,
+  countdownId: null,
+};
+
+// ── Helpers ────────────────────────────────────────
+const fmtKrw  = n => Math.round(n).toLocaleString('ko-KR');
+const fmtHkd  = n => n.toFixed(4);
+const fmtRate = n => n.toFixed(2);
+
+function fmtDateTime(d) {
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ` +
+         `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
+function fetchWithTimeout(url, ms = 6000) {
+  const ctrl = new AbortController();
+  const id = setTimeout(() => ctrl.abort(), ms);
+  return fetch(url, { signal: ctrl.signal }).finally(() => clearTimeout(id));
+}
+
+// ── API Fetchers ───────────────────────────────────
+async function fetchBithumb() {
+  const res = await fetchWithTimeout('https://api.bithumb.com/public/ticker/USDT_KRW');
+  if (!res.ok) throw new Error(`Bithumb HTTP ${res.status}`);
+  const json = await res.json();
+  const price = parseFloat(json?.data?.closing_price);
+  if (isNaN(price)) throw new Error('Bithumb: 가격 파싱 실패');
+  return price;
+}
+
+async function fetchHashKey() {
+  const res = await fetchWithTimeout(
+    'https://api-pro.hashkey.com/quote/v1/ticker/price?symbol=USDTHKD', 5000
+  );
+  if (!res.ok) throw new Error(`HashKey HTTP ${res.status}`);
+  const json = await res.json();
+  // HashKey returns an array or a single object depending on endpoint version
+  const item = Array.isArray(json) ? json[0] : json;
+  const price = parseFloat(item?.price ?? item?.lastPrice);
+  if (isNaN(price)) throw new Error('HashKey: 가격 파싱 실패');
+  return price;
+}
+
+async function fetchCoinGeckoHKD() {
+  const res = await fetchWithTimeout(
+    'https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=hkd'
+  );
+  if (!res.ok) throw new Error(`CoinGecko HTTP ${res.status}`);
+  const json = await res.json();
+  const price = parseFloat(json?.tether?.hkd);
+  if (isNaN(price)) throw new Error('CoinGecko: 가격 파싱 실패');
+  return price;
+}
+
+async function fetchHKDKRW() {
+  const res = await fetchWithTimeout('https://api.exchangerate-api.com/v4/latest/HKD');
+  if (!res.ok) throw new Error(`ExchangeRate HTTP ${res.status}`);
+  const json = await res.json();
+  const rate = parseFloat(json?.rates?.KRW);
+  if (isNaN(rate)) throw new Error('ExchangeRate: 환율 파싱 실패');
+  return rate;
+}
+
+// ── Core Fetch Cycle ───────────────────────────────
+async function fetchAll() {
+  // Bithumb + HKD환율 병렬 요청
+  const [bithumb_krw, hkd_krw] = await Promise.all([fetchBithumb(), fetchHKDKRW()]);
+
+  // HashKey 우선, 실패 시 CoinGecko fallback
+  let hk_hkd, source;
+  try {
+    hk_hkd = await fetchHashKey();
+    source  = 'HashKey';
+  } catch (e) {
+    console.warn('[HashKey 실패] CoinGecko로 전환:', e.message);
+    hk_hkd = await fetchCoinGeckoHKD();
+    source  = 'CoinGecko';
+  }
+
+  const hk_krw  = hk_hkd * hkd_krw;
+  const premium = (bithumb_krw - hk_krw) / hk_krw * 100;
+
+  return { bithumb_krw, hk_hkd, hk_krw, hkd_krw, premium, source };
+}
+
+// ── Telegram ───────────────────────────────────────
+async function sendTelegram(token, chatId, text) {
+  const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, text }),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.description ?? 'Telegram error');
+  return json;
+}
+
+function buildMessage(data) {
+  const sign = data.premium >= 0 ? '+' : '';
+  return (
+    `🚨 USDT 김치프리미엄 알림\n` +
+    `━━━━━━━━━━━━━━━\n` +
+    `📊 현재 프리미엄: ${sign}${data.premium.toFixed(2)}%\n` +
+    `🇰🇷 Bithumb: ${fmtKrw(data.bithumb_krw)} KRW\n` +
+    `🇭🇰 HashKey: ${fmtKrw(data.hk_krw)} KRW (환산)\n` +
+    `💱 HKD/KRW: ${fmtRate(data.hkd_krw)}\n` +
+    `⏰ 시각: ${fmtDateTime(new Date())}\n` +
+    `━━━━━━━━━━━━━━━\n` +
+    `#김치프리미엄 #USDT`
+  );
+}
+
+async function tryAlert(data) {
+  if (!state.alertEnabled) return;
+
+  const token     = document.getElementById('inToken').value.trim();
+  const chatId    = document.getElementById('inChatId').value.trim();
+  const threshold = parseFloat(document.getElementById('inThreshold').value) || CONFIG.ALERT_THRESHOLD;
+
+  if (!token || !chatId) return;
+  if (Math.abs(data.premium) <= threshold) return;
+  if (Date.now() - state.lastAlertTime < CONFIG.ALERT_COOLDOWN) return;
+
+  try {
+    await sendTelegram(token, chatId, buildMessage(data));
+    state.lastAlertTime = Date.now();
+    setStatus('ok', `✅ 알림 전송됨 (${new Date().toLocaleTimeString('ko-KR')})`);
+  } catch (e) {
+    setStatus('err', `❌ 알림 실패: ${e.message}`);
+  }
+}
+
+// ── UI Update ──────────────────────────────────────
+function setStatus(cls, msg) {
+  const el = document.getElementById('alertStatus');
+  el.textContent = msg;
+  el.className = `alert-status ${cls}`;
+}
+
+function updatePremium(prem, threshold) {
+  const el   = document.getElementById('premValue');
+  const sign = prem >= 0 ? '+' : '';
+  el.textContent = `${sign}${prem.toFixed(2)}%`;
+
+  // Color class
+  if (prem > 0) {
+    el.className = `prem-value ${prem >= threshold ? 'st-pos-hi' : 'st-pos'}`;
+  } else {
+    el.className = 'prem-value st-neg';
+  }
+
+  // Description
+  document.getElementById('premDesc').textContent =
+    prem >= 0 ? '김프 — 국내가 더 비쌈' : '역프 — 국내가 더 쌈';
+
+  // Action hint
+  const actionEl = document.getElementById('premAction');
+  if (Math.abs(prem) > threshold) {
+    actionEl.textContent = prem > 0
+      ? '해외 매수 → 국내 매도 유리'
+      : '국내 매수 → 해외 매도 유리';
+    actionEl.className = `prem-action show ${prem > 0 ? 'act-pos' : 'act-neg'}`;
+  } else {
+    actionEl.className = 'prem-action';
+  }
+}
+
+function updateUI(data) {
+  state.lastData = data;
+  const threshold = parseFloat(document.getElementById('inThreshold').value) || CONFIG.ALERT_THRESHOLD;
+
+  updatePremium(data.premium, threshold);
+
+  // Prices
+  document.getElementById('bithumbKrw').textContent = `${fmtKrw(data.bithumb_krw)} KRW`;
+  document.getElementById('hkHkd').textContent      = `${fmtHkd(data.hk_hkd)} HKD`;
+  document.getElementById('hkKrwSub').textContent   = `≈ ${fmtKrw(data.hk_krw)} KRW`;
+  document.getElementById('hkExchLabel').textContent =
+    data.source === 'CoinGecko' ? '🌐 CoinGecko' : '🇭🇰 HashKey';
+
+  // Info
+  document.getElementById('hkdRate').textContent = fmtRate(data.hkd_krw);
+  const badge = document.getElementById('srcBadge');
+  badge.textContent = data.source;
+  badge.className   = `badge ${data.source === 'CoinGecko' ? 'badge-orange' : 'badge-purple'}`;
+  document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString('ko-KR');
+
+  // Status dot
+  document.getElementById('statusDot').className = 'dot live';
+  document.getElementById('statusText').textContent = '실시간 업데이트 중';
+}
+
+function showError(msg) {
+  document.getElementById('statusDot').className = 'dot error';
+  document.getElementById('statusText').textContent = `오류: ${msg}`;
+  const el = document.getElementById('premValue');
+  el.textContent = '--';
+  el.className   = 'prem-value st-idle';
+  document.getElementById('premDesc').textContent = '데이터 로드 실패 — 잠시 후 재시도';
+  document.getElementById('premAction').className = 'prem-action';
+}
+
+// ── Refresh Cycle ──────────────────────────────────
+async function refresh() {
+  document.getElementById('countdown').textContent = '갱신 중...';
+  try {
+    const data = await fetchAll();
+    updateUI(data);
+    await tryAlert(data);
+  } catch (e) {
+    console.error('[refresh error]', e);
+    showError(e.message);
+  }
+  state.countdown = CONFIG.REFRESH_INTERVAL / 1000;
+}
+
+function startCountdown() {
+  clearInterval(state.countdownId);
+  state.countdownId = setInterval(() => {
+    state.countdown = Math.max(0, state.countdown - 1);
+    document.getElementById('countdown').textContent =
+      state.countdown > 0 ? `${state.countdown}초 후 갱신` : '';
+  }, 1000);
+}
+
+function startAutoRefresh() {
+  refresh();
+  startCountdown();
+  clearInterval(state.refreshId);
+  state.refreshId = setInterval(() => {
+    refresh();
+    startCountdown();
+  }, CONFIG.REFRESH_INTERVAL);
+}
+
+// ── Init ───────────────────────────────────────────
+function init() {
+  // Populate inputs from CONFIG
+  document.getElementById('inToken').value     = CONFIG.TELEGRAM_BOT_TOKEN;
+  document.getElementById('inChatId').value    = CONFIG.TELEGRAM_CHAT_ID;
+  document.getElementById('inThreshold').value = CONFIG.ALERT_THRESHOLD;
+
+  // Toggle
+  document.getElementById('alertToggle').addEventListener('change', function () {
+    state.alertEnabled = this.checked;
+    const token  = document.getElementById('inToken').value.trim();
+    const chatId = document.getElementById('inChatId').value.trim();
+    if (this.checked && (!token || !chatId)) {
+      setStatus('err', '⚠ BOT TOKEN과 CHAT ID를 먼저 입력하세요.');
+      this.checked = false;
+      state.alertEnabled = false;
+      return;
+    }
+    setStatus('', this.checked ? '알림이 활성화되었습니다.' : '알림이 꺼졌습니다.');
+  });
+
+  // Test button — reuse sendTelegram directly (no cooldown check)
+  document.getElementById('btnTest').addEventListener('click', async function () {
+    const token  = document.getElementById('inToken').value.trim();
+    const chatId = document.getElementById('inChatId').value.trim();
+    if (!token || !chatId) { setStatus('err', '❌ BOT TOKEN과 CHAT ID를 입력하세요.'); return; }
+
+    this.disabled = true;
+    setStatus('', '전송 중...');
+    try {
+      const msg = state.lastData
+        ? buildMessage(state.lastData)
+        : `🧪 테스트 메시지\n\nkimchi-premium-monitor 연결 확인\n⏰ ${fmtDateTime(new Date())}`;
+      await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId, text: msg }),
+      }).then(r => r.json()).then(j => {
+        if (!j.ok) throw new Error(j.description);
+      });
+      setStatus('ok', '✅ 테스트 메시지 전송 성공!');
+    } catch (e) {
+      setStatus('err', `❌ 전송 실패: ${e.message}`);
+    } finally {
+      this.disabled = false;
+    }
+  });
+
+  // Threshold change → re-color premium display if data available
+  document.getElementById('inThreshold').addEventListener('change', () => {
+    if (state.lastData) {
+      const threshold = parseFloat(document.getElementById('inThreshold').value) || CONFIG.ALERT_THRESHOLD;
+      updatePremium(state.lastData.premium, threshold);
+    }
+  });
+
+  startAutoRefresh();
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
