@@ -551,42 +551,26 @@ async function fetchBithumb() {
   return price;
 }
 
-async function fetchHashKey() {
-  const res = await fetchWithTimeout(
-    'https://api-pro.hashkey.com/quote/v1/ticker/price?symbol=USDTHKD', 5000
-  );
-  if (!res.ok) throw new Error(`HashKey HTTP ${res.status}`);
-  const json = await res.json();
-  // HashKey returns an array or a single object depending on endpoint version
-  const item = Array.isArray(json) ? json[0] : json;
-  const price = parseFloat(item?.price ?? item?.lastPrice);
-  if (isNaN(price)) throw new Error('HashKey: 가격 파싱 실패');
-  return price;
-}
-
-async function fetchCoinGeckoHKD() {
-  const res = await fetchWithTimeout(
-    'https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=hkd'
-  );
+// CoinGecko 단일 호출로 현재가 + 24h 통계 모두 가져옴
+async function fetchCoinGeckoFull() {
+  const url = 'https://api.coingecko.com/api/v3/coins/tether' +
+    '?localization=false&tickers=false&market_data=true' +
+    '&community_data=false&developer_data=false&sparkline=false';
+  const res = await fetchWithTimeout(url, 8000);
   if (!res.ok) throw new Error(`CoinGecko HTTP ${res.status}`);
   const json = await res.json();
-  const price = parseFloat(json?.tether?.hkd);
-  if (isNaN(price)) throw new Error('CoinGecko: 가격 파싱 실패');
-  return price;
-}
+  const md = json?.market_data;
+  if (!md) throw new Error('CoinGecko: market_data 없음');
 
-async function fetchHashKey24h() {
-  const res = await fetchWithTimeout(
-    'https://api-pro.hashkey.com/quote/v1/ticker/24hr?symbol=USDTHKD', 5000
-  );
-  if (!res.ok) throw new Error(`HashKey 24h HTTP ${res.status}`);
-  const json = await res.json();
-  const item = Array.isArray(json) ? json[0] : json;
+  const price = parseFloat(md.current_price?.hkd);
+  if (isNaN(price)) throw new Error('CoinGecko: HKD 가격 파싱 실패');
+
   return {
-    change:  parseFloat(item?.priceChangePercent ?? item?.priceChange24h ?? NaN),
-    high:    parseFloat(item?.highPrice ?? item?.high ?? NaN),
-    low:     parseFloat(item?.lowPrice  ?? item?.low  ?? NaN),
-    volume:  parseFloat(item?.volume ?? NaN),
+    price,
+    change:  parseFloat(md.price_change_percentage_24h ?? NaN),
+    high:    parseFloat(md.high_24h?.hkd ?? NaN),
+    low:     parseFloat(md.low_24h?.hkd  ?? NaN),
+    volume:  parseFloat(md.total_volume?.hkd ?? NaN),
   };
 }
 
@@ -604,27 +588,14 @@ async function fetchAll() {
   // Bithumb + HKD환율 병렬 요청
   const [bithumb_krw, hkd_krw] = await Promise.all([fetchBithumb(), fetchHKDKRW()]);
 
-  // HashKey 우선, 실패 시 CoinGecko fallback
-  let hk_hkd, source;
-  try {
-    hk_hkd = await fetchHashKey();
-    source  = 'HashKey';
-  } catch (e) {
-    console.warn('[HashKey 실패] CoinGecko로 전환:', e.message);
-    hk_hkd = await fetchCoinGeckoHKD();
-    source  = 'CoinGecko';
-  }
+  // CoinGecko에서 HKD 가격 + 24h 통계 한 번에 가져옴
+  const cg = await fetchCoinGeckoFull();
+  const hk_hkd  = cg.price;
+  const source  = 'CoinGecko';
+  const stats24h = { change: cg.change, high: cg.high, low: cg.low, volume: cg.volume };
 
   const hk_krw  = hk_hkd * hkd_krw;
   const premium = (bithumb_krw - hk_krw) / hk_krw * 100;
-
-  // 24h stats — 실패해도 메인 데이터에 영향 없음
-  let stats24h = null;
-  try {
-    stats24h = await fetchHashKey24h();
-  } catch (e) {
-    console.warn('[24h 실패]', e.message);
-  }
 
   return { bithumb_krw, hk_hkd, hk_krw, hkd_krw, premium, source, stats24h };
 }
@@ -721,14 +692,13 @@ function updateUI(data) {
   document.getElementById('bithumbKrw').textContent = `${fmtKrw(data.bithumb_krw)} KRW`;
   document.getElementById('hkHkd').textContent      = `${fmtHkd(data.hk_hkd)} HKD`;
   document.getElementById('hkKrwSub').textContent   = `≈ ${fmtKrw(data.hk_krw)} KRW`;
-  document.getElementById('hkExchLabel').textContent =
-    data.source === 'CoinGecko' ? '🌐 CoinGecko' : '🇭🇰 HashKey';
+  document.getElementById('hkExchLabel').textContent = '🌐 CoinGecko';
 
   // Info
   document.getElementById('hkdRate').textContent = fmtRate(data.hkd_krw);
   const badge = document.getElementById('srcBadge');
-  badge.textContent = data.source;
-  badge.className   = `badge ${data.source === 'CoinGecko' ? 'badge-orange' : 'badge-purple'}`;
+  badge.textContent = 'CoinGecko';
+  badge.className   = 'badge badge-orange';
   document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString('ko-KR');
 
   // HKD Dashboard
